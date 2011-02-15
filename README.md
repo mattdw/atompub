@@ -27,7 +27,8 @@ This library expects maps of specific key/values in a few places. The expected k
 This is the data that belongs to the top-level of an atom feed. See `atompub.core/feed-properties`. Values are strings unless specified.
 
 * `title` (required) - the title of the feed.
-* `updated` (required, `java.util.Date` or `org.joda.time.DateTime`) - when the feed was last updated. e.g. the 'modified' date of the latest entry.* `url` (required) - the absolute url of the feed. Also used as the feed id.
+* `updated` (required, `java.util.Date` or `org.joda.time.DateTime`) - when the feed was last updated. e.g. the 'modified' date of the latest entry.
+* `url` (required) - the absolute url of the feed. Also used as the feed id.
 * `home-url` - an absolute url to a homepage for the site to which the
   feed belongs, or similar.
 * `author-name` - name of the author.
