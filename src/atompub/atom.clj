@@ -6,7 +6,7 @@
    [clojure.contrib.zip-filter :as zf]
    [clojure.zip :as zip]
    [clojure.xml :as xml])
-  (:import [org.joda.time DateTime]))
+  (:import [org.joda.time DateTime DateTimeZone]))
 
 ;; ## Utility functions
 
@@ -53,7 +53,7 @@
   "Create an atom-format date from anything joda.org.time.DateTime has
   a constructor for -- at least joda DateTime and java.util.Date."
   [x]
-  (str (DateTime. x)))
+  (str (.toDateTime (DateTime. x) DateTimeZone/UTC)))
 
 (defn atom-entry
   "Convert an atompub.core/atom-entry map to XML."

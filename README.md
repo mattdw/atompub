@@ -20,6 +20,6 @@ Currently you'll need to handle most of the plumbing, particularly turning your 
 
 ## License
 
-Copyright (C) 2010 Matt Wilson
+Copyright (C) 2011 Matt Wilson
 
 Distributed under the Eclipse Public License, the same as Clojure.
