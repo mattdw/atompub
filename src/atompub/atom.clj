@@ -80,13 +80,13 @@
 
 (defn atom-edit-entry
   "Convert an atompub.core/edit-entry map to XML."
-  [item]
+  [item prefix]
   [:entry {:xmlns "http://www.w3.org/2005/Atom"
            :xmlns:app "http://www.w3.org/2007/app"}
    [:title (:title item)]
    [:id (:id item)]
-   [:link {:href (:link item) :rel "edit"}]
-   [:link {:href (:link item) :rel "self"}]
+   [:link {:href (str prefix "/entries/" (:id item)) :rel "edit"}]
+   [:link {:href (str prefix "/entries/" (:id item)) :rel "self"}]
    (when (:url item)
      [:link {:href (:url item) :rel "alternate" :type "text/html"}])
    [:updated (atom-date (:updated item))]
