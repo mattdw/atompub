@@ -39,7 +39,7 @@ This is the data that belongs to the top-level of an atom feed. See `atompub.cor
 These are the keys used in creating \<entry> elements. Again, strings unless specified, optional unless noted.
 
 * `title` (required) - title of the entry.
-* `id` (required) - a globally unique identifier for the entry. Should never change. Permalinks may be reliable enough.
+* `id` (required) - for syndication, a globally unique identifier for the entry. Should never change. Permalinks may be reliable enough. For APP editable entries, it only needs to be locally unique, so it should just be something like a numeric primary key, as it ends up in URLs.
 * `updated` (required, `java.util.Date` or `org.joda.time.DateTime`) - the date of the last significant change to the entry. Might be 'modified date' if you store one, otherwise 'published date' is fine.
 * `published` (optional, otherwise as `updated`) - date the entry was first published.
 * `url` - a link to an alternative version of the entry. e.g. blog post permalink.
