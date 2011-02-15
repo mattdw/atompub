@@ -16,12 +16,12 @@
 
 (def default-feed-properties
   {:title         required-field
+   :updated       required-field
    :url           required-field    ; url to this feed
    :home-url      nil               ; url to an appropriate homepage
                                     ; for this feed
    :author-name   required-field
-   :author-email  nil
-   :updated       required-field})
+   :author-email  nil})
 
 (defn feed-properties
   "Create a top-level feed-properties map."
@@ -37,7 +37,9 @@
    :published     nil
    :url           nil
    :content       nil
-   :summary       nil})
+   :summary       nil
+   :author-name   nil
+   :author-email  nil})
 
 (defn atom-entry
   "Create an atom-entry map."

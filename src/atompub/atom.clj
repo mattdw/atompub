@@ -67,6 +67,12 @@
      [:published (atom-date (:published item))])
    (when (:url item)
      [:link {:href (:url item) :rel "alternate"}])
+   (let [name (:author-name props)
+         email (:author-email props)]
+     (when name
+       [:author
+        [:name name]
+        (when email [:email email])]))
    (when (:content item)
      [:content {:type "html"} (:content item)])
    (when (:summary item)
@@ -94,6 +100,12 @@
      [:content {:type "text"} [:cdata! (:content item)]])
    (when (:summary item)
      [:summary {:type "text"} [:cdata! (:summary item)]])
+   (let [name (:author-name props)
+         email (:author-email props)]
+     (when name
+       [:author
+        [:name name]
+        (when email [:email email])]))
    (when (:categories item)
      (map (fn [cat] [:category {:term cat}]) (:categories item)))])
 
