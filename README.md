@@ -97,7 +97,7 @@ A quick list of useful response codes you might have reason to use:
     410 Gone
     500 Internal Server Error
 
-This library doesn't care what status codes are used; if you return a Ring response map, it'll just be passed back to the client.
+This library doesn't care what status codes are used; if you return a Ring response map, it'll be used as the response to the client.
 
 ### General Use
 
@@ -107,11 +107,11 @@ You expose an APP collection with the `collection-handler` function, which retur
 
 * The `:url` key must have a trailing slash, and will point to the Atom Service Document for the collection, not the feed itself (which nests underneath the service document.) You should consider all sub-urls of `:url` to be reserved.
 
-  A good example might be the following moustache snippet (which ignores authentication for simplicity):
+  A good example might be the following [moustache](https://github.com/cgrand/moustache) snippet (which ignores authentication for simplicity):
   
-        ["admin" "blog-posts"] (collection-handler
-                                 {:url "http://example.com/admin/blog-posts/" ...}
-                                 ...)
+        ["admin" "blog-posts" &] (collection-handler
+                                   {:url "http://example.com/admin/blog-posts/" ...}
+                                   ...)
 
 `collection-handler`'s second argument is a map of functions. All functions may return Ring responses for errors, as described above. The required functions are the following:
 
@@ -133,7 +133,7 @@ You expose an APP collection with the `collection-handler` function, which retur
 
 * `:save-entry`
   * First argument may be either `nil` or an id. If it's `nil`, the function should create a new entry. If non-nil, it should be treated as the id of the post to be updated.
-  * Second argument is a map of atom fields. It may not contain all the fields you provided. It may also contain fields you haven't provided, e.g. `:draft?`.
+  * Second argument is a map of atom entry fields. It may not contain all the fields you provided. It may also contain fields you haven't provided, e.g. `:draft?`.
   * Returns a Ring response in case of error, otherwise an entry map describing the new (saved) entry.
 
 ## License
