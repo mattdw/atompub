@@ -52,6 +52,8 @@
     (is (and (re-find #"\<service" (:body svc))
              (= (get-in svc [:headers "Content-Type"])
                 "application/atomsvc+xml; charset=utf-8")))
+    (is (re-find #"http://localhost/entries/" (:body svc)))
+    (is (re-find #"http://localhost/categories/" (:body svc)))
 
     ;; all entries
     (is (= 200 (:status entries)))
