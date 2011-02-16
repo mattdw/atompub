@@ -3,71 +3,103 @@
         [net.cgrand moustache]
         [clojure.contrib.prxml :only (prxml)]))
 
+(defn- collection-response
+  "Turn (nearly) any kind of value into an appropriate Ring response. *Very* heuristic."
+  [val prefix]
+  (cond
+   (true? val)
+     {:status 200}
+   (:status val)
+     val
+   (or (number? val)
+       (string? val))
+     {:status 302
+      :headers {"Location" (str prefix "/entries/" val)}}
+   (map? val)
+     (make-response "application/atom+xml; charset=utf-8"
+                    (atom-edit-entry val prefix))
+   :else
+     {:status 500}))
+
+
 (defn feed-handler
   "Creates a ring handler for an Atom Syndication feed
 
    - `feed-props` is a map like `atompub.core/feed-properties` returns.
-   - `entry-seq` is a sequence of `atompub.core/atom-entry` maps."
-  [feed-props entry-seq]
-  (fn [_] (make-response "application/atom+xml; charset=utf-8"
-                        (atom-feed feed-props (map atom-entry entry-seq)))))
+   - `entry-seq-fun` is a function which returns a sequence of
+      `atompub.core/atom-entry` maps.
+   - optionally takes a third argument, which is a function that is mapped
+      across the items from `entry-seq-fun`, and returns an XML atom entry."
+  ([feed-props entry-seq-fun]
+     (feed-handler feed-props entry-seq-fun atom-entry))
+  ([feed-props entry-seq-fun entry-mapper]
+     (fn [_] (make-response "application/atom+xml; charset=utf-8"
+                           (atom-feed feed-props
+                                      (map entry-mapper (entry-seq-fun)))))))
+
+(defn service-doc-handler [req feed-props]
+  (make-response "application/atomsvc+xml; charset=utf-8"
+                 (service-doc (:url feed-props) (:title feed-props))))
+
+(defn save-entry-handler [req feed-props save-func id-or-nil]
+  (let [result (save-func id-or-nil (parse-request req))
+        entry-response (if (:status result)
+                         nil
+                         (make-response atom-ctype
+                          (xml-to-str (atom-edit-entry result (:url feed-props)))))]
+    (cond
+     ;; new post, new-id is not a response
+     (and (nil? id-or-nil) (:id result))
+     (-> (assoc entry-response :status 201)
+         (assoc-in [:headers "Location"] (str (:url feed-props) "entries/"
+                                              (or (:id result) result))))
+
+     ;; new-id is a response
+     (:status result)
+       result
+
+     :else
+       entry-response
+       )))
+
+(defn get-entry-handler [req feed-props get-func id]
+  (let [entry (get-func id)]
+    (make-response atom-ctype (xml-to-str
+                               (atom-edit-entry entry (:url feed-props))))))
+
+(defn delete-entry-handler [req del-func id]
+  (let [result (del-func id)]
+    (collection-response result nil)))
 
 (defn collection-handler
   "Creates a ring handler for an Atom Publishing Protocol Collection"
-  []
-  )
+  [feed-props method-map]
+  (app
+   [""] (delegate service-doc-handler feed-props)
 
-(defn atom-collection
-  "Create a ring-handler for an APP collection."
-  [{:keys [to-atom from-atom items get-item save-item
-                               delete-item categories for-url prefix
-                               title scheme]
-                        :or {:to-atom identity :from-atom identity}}]
-  ;; maybe side-effecty register collection somewhere, for service doc purposes.
-  (letfn [(get-entry-response [id]
-           (make-response
-            "application/atom+xml; charset=utf-8"
-            (with-out-str
-              (prxml [:decl!]
-                     (atom-edit-entry (to-atom (get-item id))
-                                      {:prefix prefix})))))]
-   (app
-    ;; Service document, containing a single collection
-    [""] (fn [_] (make-response "application/atomsvs+xml; charset=utf-8"
-                              (service-doc prefix title)))
+   ["entries" ""] {:get  (feed-handler
+                          (assoc feed-props
+                            :url (str (:url feed-props) "entries/"))
+                          (:get-entries method-map)
+                          #(atom-edit-entry % (:url feed-props)))
+                   :post (delegate save-entry-handler
+                                   feed-props
+                                   (:save-entry method-map)
+                                   nil)}
+   
+   ["entries" id] {:get    (delegate get-entry-handler
+                                     feed-props
+                                     (:get-entry method-map)
+                                     id)
+                   :put    (delegate save-entry-handler
+                                     feed-props
+                                     (:save-entry method-map)
+                                     id)
+                   :delete (delegate delete-entry-handler
+                                     (:delete-entry method-map)
+                                     id)}
 
-    ;; Collection handlers
-    ;; - get: an atom-feed of the items provided by :items
-    ;; - post: create a new item
-    ["entries" ""] {:get (fn [_]
-                           (make-response
-                            "application/atom+xml; charset=utf-8"
-                            (atom-feed
-                             {:url for-url :title for-url
-                              :feed-url (str prefix "/entries/") :scheme scheme}
-                             (map #(atom-edit-entry (to-atom %) {:prefix prefix})
-                                  (items)))))
-                    :post #(let [id (save-item nil (from-atom (parse-request %)))]
-                             (if (map? id)
-                               id
-                               (-> (get-entry-response id)
-                                   (assoc-in [:headers "Location"]
-                                             (str prefix "/entries/" id))
-                                   (assoc :status 201))))}
-
-    ;; Single entry handlers
-    ;; - get: return a single entry response
-    ;; - put: save a new entry
-    ;; - delete: delete the entry
-    ["entries" id] {:get (fn [_]
-                           (if-let [entry (get-item id)]
-                             (get-entry-response id)
-                             {:status 404 :body "Nonexistent ID"}))
-                    :put #(save-item id (from-atom (parse-request %)))
-                    :delete (fn [_] (if (delete-item id)
-                                     {:status 200}
-                                     {:status 404}))}
-
-    ;; Categories document
-    ["categories" ""] (fn [_] (make-response "application/atomcat+xml; charset=utf-8"
-                                           (categories-doc scheme (categories)))))))
+   ["categories" ""] (fn [_] (make-response
+                             atom-ctype
+                             (categories-doc "" ((:get-categories method-map)))))
+   ))

@@ -10,10 +10,15 @@
 
 ;; ## Utility functions
 
+(def atom-ctype "application/atom+xml; charset=utf-8")
+
 (defn make-response [ctype body]
   {:status 200
    :headers {"Content-Type" ctype}
    :body body})
+
+(defn xml-to-str [xml-struct]
+  (with-out-str (prxml xml-struct)))
 
 (defn text*
   "Returns the textual contents of the given location, similar to
@@ -67,8 +72,8 @@
      [:published (atom-date (:published item))])
    (when (:url item)
      [:link {:href (:url item) :rel "alternate"}])
-   (let [name (:author-name props)
-         email (:author-email props)]
+   (let [name (:author-name item)
+         email (:author-email item)]
      (when name
        [:author
         [:name name]
@@ -85,8 +90,8 @@
            :xmlns:app "http://www.w3.org/2007/app"}
    [:title (:title item)]
    [:id (:id item)]
-   [:link {:href (str prefix "/entries/" (:id item)) :rel "edit"}]
-   [:link {:href (str prefix "/entries/" (:id item)) :rel "self"}]
+   [:link {:href (str prefix "entries/" (:id item)) :rel "edit"}]
+   [:link {:href (str prefix "entries/" (:id item)) :rel "self"}]
    (when (:url item)
      [:link {:href (:url item) :rel "alternate" :type "text/html"}])
    [:updated (atom-date (:updated item))]
@@ -100,8 +105,8 @@
      [:content {:type "text"} [:cdata! (:content item)]])
    (when (:summary item)
      [:summary {:type "text"} [:cdata! (:summary item)]])
-   (let [name (:author-name props)
-         email (:author-email props)]
+   (let [name (:author-name item)
+         email (:author-email item)]
      (when name
        [:author
         [:name name]
@@ -142,9 +147,9 @@
                 :xmlns:atom "http://www.w3.org/2005/Atom"}
       [:workspace
        [:atom:title title]
-       [:collection {:href (str prefix "/entries/")}
+       [:collection {:href (str prefix "entries/")}
         [:atom:title title]
-        [:categories {:href (str prefix "/categories/")}]]]])))
+        [:categories {:href (str prefix "categories/")}]]]])))
 
 (defn categories-doc
   "Categories document for APP."

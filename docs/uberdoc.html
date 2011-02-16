@@ -2538,10 +2538,15 @@ $(document).ready(function() {
   (:import [org.joda.time DateTime DateTimeZone]))</pre></td></tr><tr><td class="docs"><h2>Utility functions</h2>
 </td><td class="codes"><pre class="brush: clojure"></pre></td></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">
+(def atom-ctype &quot;application/atom+xml; charset=utf-8&quot;)</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">
 (defn make-response [ctype body]
   {:status 200
    :headers {&quot;Content-Type&quot; ctype}
-   :body body})</pre></td></tr><tr><td class="docs"><p>Returns the textual contents of the given location, similar to
+   :body body})</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">
+(defn xml-to-str [xml-struct]
+  (with-out-str (prxml xml-struct)))</pre></td></tr><tr><td class="docs"><p>Returns the textual contents of the given location, similar to
   xpaths's value-of. Doesn't collapse whitespace, unlike
   contrib.zip-filter.xml/text.</p>
 </td><td class="codes"><pre class="brush: clojure">
@@ -2589,8 +2594,8 @@ Atom fields.</p>
      [:published (atom-date (:published item))])
    (when (:url item)
      [:link {:href (:url item) :rel &quot;alternate&quot;}])
-   (let [name (:author-name props)
-         email (:author-email props)]
+   (let [name (:author-name item)
+         email (:author-email item)]
      (when name
        [:author
         [:name name]
@@ -2601,13 +2606,13 @@ Atom fields.</p>
      [:summary {:type &quot;html&quot;} (:content item)])])</pre></td></tr><tr><td class="docs"><p>Convert an atompub.core/edit-entry map to XML.</p>
 </td><td class="codes"><pre class="brush: clojure">
 (defn atom-edit-entry
-  [item]
+  [item prefix]
   [:entry {:xmlns &quot;http://www.w3.org/2005/Atom&quot;
            :xmlns:app &quot;http://www.w3.org/2007/app&quot;}
    [:title (:title item)]
    [:id (:id item)]
-   [:link {:href (:link item) :rel &quot;edit&quot;}]
-   [:link {:href (:link item) :rel &quot;self&quot;}]
+   [:link {:href (str prefix &quot;entries/&quot; (:id item)) :rel &quot;edit&quot;}]
+   [:link {:href (str prefix &quot;entries/&quot; (:id item)) :rel &quot;self&quot;}]
    (when (:url item)
      [:link {:href (:url item) :rel &quot;alternate&quot; :type &quot;text/html&quot;}])
    [:updated (atom-date (:updated item))]
@@ -2621,8 +2626,8 @@ Atom fields.</p>
      [:content {:type &quot;text&quot;} [:cdata! (:content item)]])
    (when (:summary item)
      [:summary {:type &quot;text&quot;} [:cdata! (:summary item)]])
-   (let [name (:author-name props)
-         email (:author-email props)]
+   (let [name (:author-name item)
+         email (:author-email item)]
      (when name
        [:author
         [:name name]
@@ -2661,9 +2666,9 @@ it.</p>
                 :xmlns:atom &quot;http://www.w3.org/2005/Atom&quot;}
       [:workspace
        [:atom:title title]
-       [:collection {:href (str prefix &quot;/entries/&quot;)}
+       [:collection {:href (str prefix &quot;entries/&quot;)}
         [:atom:title title]
-        [:categories {:href (str prefix &quot;/categories/&quot;)}]]]])))</pre></td></tr><tr><td class="docs"><p>Categories document for APP.</p>
+        [:categories {:href (str prefix &quot;categories/&quot;)}]]]])))</pre></td></tr><tr><td class="docs"><p>Categories document for APP.</p>
 </td><td class="codes"><pre class="brush: clojure">
 (defn categories-doc
   [scheme categories]
@@ -2775,68 +2780,103 @@ elements of an atom entry.</p>
 </td><td class="codes"><pre class="brush: clojure">(ns atompub.handlers
   (:use [atompub.atom]
         [net.cgrand moustache]
-        [clojure.contrib.prxml :only (prxml)]))</pre></td></tr><tr><td class="docs"><p>Creates a ring handler for an Atom Syndication feed</p>
+        [clojure.contrib.prxml :only (prxml)]))</pre></td></tr><tr><td class="docs"><p>Turn (nearly) any kind of value into an appropriate Ring response. <em>Very</em> heuristic.</p>
+</td><td class="codes"><pre class="brush: clojure">
+(defn- collection-response
+  [val prefix]
+  (cond
+   (true? val)
+     {:status 200}
+   (:status val)
+     val
+   (or (number? val)
+       (string? val))
+     {:status 302
+      :headers {&quot;Location&quot; (str prefix &quot;/entries/&quot; val)}}
+   (map? val)
+     (make-response &quot;application/atom+xml; charset=utf-8&quot;
+                    (atom-edit-entry val prefix))
+   :else
+     {:status 500}))
+</pre></td></tr><tr><td class="docs"><p>Creates a ring handler for an Atom Syndication feed</p>
 
 <ul>
 <li><code>feed-props</code> is a map like <code>atompub.core/feed-properties</code> returns.</li>
-<li><code>entry-seq</code> is a sequence of <code>atompub.core/atom-entry</code> maps.</li>
+<li><code>entry-seq-fun</code> is a function which returns a sequence of
+<code>atompub.core/atom-entry</code> maps.</li>
+<li>optionally takes a third argument, which is a function that is mapped
+across the items from <code>entry-seq-fun</code>, and returns an XML atom entry.</li>
 </ul>
 </td><td class="codes"><pre class="brush: clojure">
 (defn feed-handler
-  [feed-props entry-seq]
-  (fn [_] (make-response &quot;application/atom+xml; charset=utf-8&quot;
-                        (atom-feed feed-props (map atom-entry entry-seq)))))</pre></td></tr><tr><td class="docs"><p>Creates a ring handler for an Atom Publishing Protocol Collection</p>
+  ([feed-props entry-seq-fun]
+     (feed-handler feed-props entry-seq-fun atom-entry))
+  ([feed-props entry-seq-fun entry-mapper]
+     (fn [_] (make-response &quot;application/atom+xml; charset=utf-8&quot;
+                           (atom-feed feed-props
+                                      (map entry-mapper (entry-seq-fun)))))))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">
+(defn service-doc-handler [req feed-props]
+  (make-response &quot;application/atomsvc+xml; charset=utf-8&quot;
+                 (service-doc (:url feed-props) (:title feed-props))))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">
+(defn save-entry-handler [req feed-props save-func id-or-nil]
+  (let [result (save-func id-or-nil (parse-request req))
+        entry-response (if (:status result)
+                         nil
+                         (make-response atom-ctype
+                          (xml-to-str (atom-edit-entry result (:url feed-props)))))]</pre></td></tr><tr><td class="docs"><p>new post, new-id is not a response</p>
+</td><td class="codes"><pre class="brush: clojure">    (cond
+     (and (nil? id-or-nil) (:id result))
+     (-&gt; (assoc entry-response :status 201)
+         (assoc-in [:headers &quot;Location&quot;] (str (:url feed-props) &quot;entries/&quot;
+                                              (or (:id result) result))))</pre></td></tr><tr><td class="docs"><p>new-id is a response</p>
+</td><td class="codes"><pre class="brush: clojure">
+     (:status result)
+       result
+
+     :else
+       entry-response
+       )))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">
+(defn get-entry-handler [req feed-props get-func id]
+  (let [entry (get-func id)]
+    (make-response atom-ctype (xml-to-str
+                               (atom-edit-entry entry (:url feed-props))))))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">
+(defn delete-entry-handler [req del-func id]
+  (let [result (del-func id)]
+    (collection-response result nil)))</pre></td></tr><tr><td class="docs"><p>Creates a ring handler for an Atom Publishing Protocol Collection</p>
 </td><td class="codes"><pre class="brush: clojure">
 (defn collection-handler
-  []
-  )</pre></td></tr><tr><td class="docs"><p>Create a ring-handler for an APP collection.</p>
-</td><td class="codes"><pre class="brush: clojure">
-(defn atom-collection
-  [{:keys [to-atom from-atom items get-item save-item
-                               delete-item categories for-url prefix
-                               title scheme]</pre></td></tr><tr><td class="docs"><p>maybe side-effecty register collection somewhere, for service doc purposes.</p>
-</td><td class="codes"><pre class="brush: clojure">                        :or {:to-atom identity :from-atom identity}}]
-  (letfn [(get-entry-response [id]
-           (make-response
-            &quot;application/atom+xml; charset=utf-8&quot;
-            (with-out-str
-              (prxml [:decl!]
-                     (atom-edit-entry (to-atom (get-item id))
-                                      {:prefix prefix})))))]</pre></td></tr><tr><td class="docs"><p>Service document, containing a single collection</p>
-</td><td class="codes"><pre class="brush: clojure">   (app
-    [&quot;&quot;] (fn [_] (make-response &quot;application/atomsvs+xml; charset=utf-8&quot;
-                              (service-doc prefix title)))</pre></td></tr><tr><td class="docs"><p>Collection handlers
-- get: an atom-feed of the items provided by :items
-- post: create a new item</p>
-</td><td class="codes"><pre class="brush: clojure">
-    [&quot;entries&quot; &quot;&quot;] {:get (fn [_]
-                           (make-response
-                            &quot;application/atom+xml; charset=utf-8&quot;
-                            (atom-feed
-                             {:url for-url :title for-url
-                              :feed-url (str prefix &quot;/entries/&quot;) :scheme scheme}
-                             (map #(atom-edit-entry (to-atom %) {:prefix prefix})
-                                  (items)))))
-                    :post #(let [id (save-item nil (from-atom (parse-request %)))]
-                             (if (map? id)
-                               id
-                               (-&gt; (get-entry-response id)
-                                   (assoc-in [:headers &quot;Location&quot;]
-                                             (str prefix &quot;/entries/&quot; id))
-                                   (assoc :status 201))))}</pre></td></tr><tr><td class="docs"><p>Single entry handlers
-- get: return a single entry response
-- put: save a new entry
-- delete: delete the entry</p>
-</td><td class="codes"><pre class="brush: clojure">
-    [&quot;entries&quot; id] {:get (fn [_]
-                           (if-let [entry (get-item id)]
-                             (get-entry-response id)
-                             {:status 404 :body &quot;Nonexistent ID&quot;}))
-                    :put #(save-item id (from-atom (parse-request %)))
-                    :delete (fn [_] (if (delete-item id)
-                                     {:status 200}
-                                     {:status 404}))}</pre></td></tr><tr><td class="docs"><p>Categories document</p>
-</td><td class="codes"><pre class="brush: clojure">
-    [&quot;categories&quot; &quot;&quot;] (fn [_] (make-response &quot;application/atomcat+xml; charset=utf-8&quot;
-                                           (categories-doc scheme (categories)))))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_atompub.atom">atompub.atom</li><li class="floating-toc-li" id="floating-toc_atompub.core">atompub.core</li><li class="floating-toc-li" id="floating-toc_atompub.handlers">atompub.handlers</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+  [feed-props method-map]
+  (app
+   [&quot;&quot;] (delegate service-doc-handler feed-props)
+
+   [&quot;entries&quot; &quot;&quot;] {:get  (feed-handler
+                          (assoc feed-props
+                            :url (str (:url feed-props) &quot;entries/&quot;))
+                          (:get-entries method-map)
+                          #(atom-edit-entry % (:url feed-props)))
+                   :post (delegate save-entry-handler
+                                   feed-props
+                                   (:save-entry method-map)
+                                   nil)}
+   
+   [&quot;entries&quot; id] {:get    (delegate get-entry-handler
+                                     feed-props
+                                     (:get-entry method-map)
+                                     id)
+                   :put    (delegate save-entry-handler
+                                     feed-props
+                                     (:save-entry method-map)
+                                     id)
+                   :delete (delegate delete-entry-handler
+                                     (:delete-entry method-map)
+                                     id)}
+
+   [&quot;categories&quot; &quot;&quot;] (fn [_] (make-response
+                             atom-ctype
+                             (categories-doc &quot;&quot; ((:get-categories method-map)))))
+   ))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/fogus/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_atompub.atom">atompub.atom</li><li class="floating-toc-li" id="floating-toc_atompub.core">atompub.core</li><li class="floating-toc-li" id="floating-toc_atompub.handlers">atompub.handlers</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
        SyntaxHighlighter.all()</script></body></html>
