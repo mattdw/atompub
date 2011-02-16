@@ -1,5 +1,6 @@
 (defproject atompub "0.2.0-SNAPSHOT"
   :description "An implementation of Atom Syndication and the Atom Publishing Protocol."
+  :url "http://github.com/mattdw/atompub"
   :dependencies [[org.clojure/clojure "1.2.0"]
                  [org.clojure/clojure-contrib "1.2.0"]
                  [joda-time "1.6"]
