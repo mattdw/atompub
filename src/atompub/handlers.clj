@@ -3,6 +3,23 @@
         [net.cgrand moustache]
         [clojure.contrib.prxml :only (prxml)]))
 
+(defn feed-handler
+  "Creates a ring handler for an Atom Syndication feed
+
+   - `feed-props` is a map like `atompub.core/feed-properties` returns.
+   - `entry-seq-fun` is a function which returns a sequence of
+      `atompub.core/atom-entry` maps.
+   - optionally takes a third argument, which is a function that is mapped
+      across the items from `entry-seq-fun`, and returns an XML atom entry."
+  ([feed-props entry-seq-fun]
+     (feed-handler feed-props entry-seq-fun atom-entry))
+  ([feed-props entry-seq-fun entry-mapper]
+     (fn [_] (let [entry-seq (entry-seq-fun)
+                  updated (:updated (first entry-seq))]
+              (make-response "application/atom+xml; charset=utf-8"
+                             (atom-feed (assoc feed-props :updated updated)
+                                        (map entry-mapper entry-seq)))))))
+
 (defn- collection-response
   "Turn (nearly) any kind of value into an appropriate Ring response. *Very* heuristic."
   [val prefix]
@@ -20,22 +37,6 @@
                     (atom-edit-entry val prefix))
    :else
      {:status 500}))
-
-
-(defn feed-handler
-  "Creates a ring handler for an Atom Syndication feed
-
-   - `feed-props` is a map like `atompub.core/feed-properties` returns.
-   - `entry-seq-fun` is a function which returns a sequence of
-      `atompub.core/atom-entry` maps.
-   - optionally takes a third argument, which is a function that is mapped
-      across the items from `entry-seq-fun`, and returns an XML atom entry."
-  ([feed-props entry-seq-fun]
-     (feed-handler feed-props entry-seq-fun atom-entry))
-  ([feed-props entry-seq-fun entry-mapper]
-     (fn [_] (make-response "application/atom+xml; charset=utf-8"
-                           (atom-feed feed-props
-                                      (map entry-mapper (entry-seq-fun)))))))
 
 (defn service-doc-handler [req feed-props]
   (make-response "application/atomsvc+xml; charset=utf-8"

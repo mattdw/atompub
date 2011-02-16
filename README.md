@@ -28,8 +28,6 @@ This is the data that belongs to the top-level of an atom feed. See `atompub.cor
 
 * `:title` (required) - the title of the feed.
 
-* `:updated` (required, `java.util.Date` or `org.joda.time.DateTime`) - when the feed was last updated. e.g. the 'modified' date of the latest entry.
-
 * `:url` (required) - the absolute url of the feed. Also used as the feed id.
 
 * `:home-url` - an absolute url to a homepage for the site to which the
@@ -38,6 +36,8 @@ This is the data that belongs to the top-level of an atom feed. See `atompub.cor
 * `:author-name` - name of the author.
 
 * `:author-email` - email address of the author.
+
+Additionally, `:updated` is required for the lower-level functionality in `atompub.atom`, but `atompub.handlers/feed-handler` assumes that the feed's `:updated` is the same as the `:updated` of the first entry in the feed (i.e. it assumes reverse-chronological ordering of feed entries by `:updated`).
 
 ### Entry-level properties
 
