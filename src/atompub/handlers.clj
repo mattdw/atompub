@@ -1,7 +1,18 @@
 (ns atompub.handlers
   (:use [atompub.atom]
         [net.cgrand moustache]
-        [clojure.contrib.prxml :only (prxml)]))
+        [clojure.contrib.prxml :only (prxml)]
+        [clojure.stacktrace :only (print-cause-trace)]))
+
+(defn- error-middleware [app]
+  (fn [req]
+    (try
+      (app req)
+      (catch Exception e
+        {:status 500
+         :body (str "Server Error: " e
+                    "\n\n"
+                    (with-out-str (print-cause-trace e)))}))))
 
 (defn feed-handler
   "Creates a ring handler for an Atom Syndication feed
@@ -76,6 +87,7 @@
   "Creates a ring handler for an Atom Publishing Protocol Collection"
   [feed-props method-map]
   (app
+   error-middleware
    [""] (delegate service-doc-handler feed-props)
 
    ["entries" ""] {:get  (feed-handler

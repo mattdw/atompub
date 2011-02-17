@@ -86,3 +86,14 @@
     (is (re-find #"\<app:categories " (:body categories)))
     (is (re-find #"\<atom:category term=.Category 2" (:body categories)))
     ))
+
+(def error-methods
+  {:get-entries #(.trim nil)})
+
+(deftest catch-errors
+  (let [app (collection-handler static-props error-methods)
+        response (app (request :get "/entries/" nil))]
+    (prn response)
+    (is (= 500 (:status response)))
+    (is (re-find #"Server Error: " (:body response)))
+    (is (re-find #"Exception" (:body response)))))
