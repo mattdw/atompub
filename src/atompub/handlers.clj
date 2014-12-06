@@ -1,7 +1,7 @@
 (ns atompub.handlers
   (:use [atompub.atom]
         [net.cgrand moustache]
-        [clojure.xml :only (emit)]
+        ;[clojure.xml :only (emit)]
         [clojure.stacktrace :only (print-cause-trace)])
   (:require [atompub.core :as a])
   (:import [atompub.core AtomEntry]))
@@ -101,6 +101,7 @@
    [""] (delegate service-doc-handler feed)
 
    ["entries" ""] {:get  (feed-handler
+                          feed
                           #_(assoc feed
                               :url (str (:url feed-props) "entries/"))
                           ;(:get-entries method-map)

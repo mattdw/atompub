@@ -1,6 +1,6 @@
 (ns atompub.atom
   (:use
-   ;[clojure.xml :only (StringEscapeUtils)]
+   [prxml :only (prxml)]
    [clojure.data.zip.xml :only (xml-> xml1-> tag= attr text)])
   (:require 
    [atompub.core :as a]
@@ -9,33 +9,9 @@
    [clojure.xml :as xml])
   (:import [org.joda.time DateTime DateTimeZone]
            [atompub.core AtomFeed AtomEntry IAtomEntry IAtomEditableEntry
-            IAtomFeed IAtomCollection]
-           [org.apache.commons.lang StringEscapeUtils]))
+            IAtomFeed IAtomCollection]))
 
 ;; ## Utility functions
-
-(defn emit-element [e]
-  (if (instance? String e)
-    (print (StringEscapeUtils/escapeXml e))
-    (do
-      (print (str "<" (name (:tag e))))
-      (when (:attrs e)
-	(doseq [attr (:attrs e)]
-	  (print (str " " (name (key attr)) "='" (StringEscapeUtils/escapeXml (val attr)) "'"))))
-      (if (:content e)
-	(do
-	  (print ">")
-	  (doseq [c (:content e)]
-	    (emit-element c))
-	  (print (str "</" (name (:tag e)) ">")))
-	(print "/>")))))
-
-(defn emit
-  ([x]
-   (println "<?xml version='1.0' encoding='UTF-8'?>")
-   (emit-element x))
-  ([_ x]
-   (emit x)))
 
 (def atom-ctype "application/atom+xml; charset=utf-8")
 
@@ -45,7 +21,7 @@
    :body body})
 
 (defn xml-to-str [xml-struct]
-  (with-out-str (emit xml-struct)))
+  (with-out-str (prxml xml-struct)))
 
 (defn text*
   "Returns the textual contents of the given location, similar to
@@ -145,28 +121,23 @@
 (defn atom-feed
   "Atom feed document, for both syndication and APP. `entries` should
    be already transformed to XML, as either prxml tree or string."
-  [props entries]
-  (with-out-str
-    (emit
-     {:tag :feed
-      :attrs {:xmlns "http://www.w3.org/2005/Atom"}
-      :content
-      (concat
-       [{:tag :title :content [(a/feed-title props)]}
-        {:tag :id :content [(a/feed-url props)]}
-        {:tag :link :attrs {:rel "self" :href (a/feed-url props)}}
-        {:tag :link
-         :attrs {:rel "alternate" :type "text/html" :href (a/feed-home-url props)}}
-        {:tag :updated :content [(atom-date (a/feed-updated props))]}
-        (let [name (a/feed-author-name props)
-              email (a/feed-author-email props)]
-          (if name
-            {:tag :author
-             :content
-             [{:tag :name :content [name]}
-              (if email {:tag :email :content [email]} "")]}
-            ""))]
-       entries)})))
+  [feed entries]
+  (with-out-str (prxml
+    [:decl!]
+    [:feed {:xmlns "http://www.w3.org/2005/Atom"}
+     (concat
+      [[:title (a/feed-title feed)]
+       [:id (a/feed-url feed)]
+       [:link {:rel "self" :href (a/feed-url feed)}]
+       [:link {:rel "alternate" :type "text/html" :href (a/feed-home-url feed)}]
+       [:updated (atom-date (a/feed-updated feed))]
+       (let [name (a/feed-author-name feed)
+             email (a/feed-author-email feed)]
+         (when name
+           [:author
+            [:name name]
+            (when email [:email email])]))]
+      entries)])))
 
 (defn service-doc
   "Return a service document describing a collection. `prefix` is the
@@ -174,30 +145,25 @@
    it."
   [prefix title]
   (with-out-str
-    (emit
-     {:tag :service
-      :attrs {:xmlns "http://www.w3.org/2007/app"
-              :xmlns:atom "http://www.w3.org/2005/Atom"}
-      :content
-      [{:tag :workspace
-        :content
-        [{:tag :atom:title :content [title]}
-         {:tag :collection
-          :attrs {:href (str prefix "entries/")}
-          :content
-          [{:tag :atom:title :content [title]}
-           {:tag :categories :attrs {:href (str prefix "categories/")}}]}]}]})))
+    (prxml
+     [:decl!]
+     [:service {:xmlns "http://www.w3.org/2007/app"
+                :xmlns:atom "http://www.w3.org/2005/Atom"}
+      [:workspace
+       [:atom:title title]
+       [:collection {:href (str prefix "entries/")}
+        [:atom:title title]
+        [:categories {:href (str prefix "categories/")}]]]])))
 
 (defn categories-doc
   "Categories document for APP."
   [scheme categories]
   (with-out-str
-    (emit
-     {:tag :app:categories
-      :attrs {:xmlns:app "http://www.w3.org/2007/app"
-              :xmlns:atom "http://www.w3.org/2005/Atom"
-              :fixed "yes"
-              :scheme scheme}
-      :content
+    (prxml
+     [:decl!]
+     [:app:categories {:xmlns:app "http://www.w3.org/2007/app"
+                       :xmlns:atom "http://www.w3.org/2005/Atom"
+                       :fixed "yes"
+                       :scheme scheme}
       (for [category categories]
-        {:tag :atom:category :attrs {:term category}})})))
+        [:atom:category {:term category}])])))
