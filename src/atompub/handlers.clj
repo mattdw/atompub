@@ -122,5 +122,4 @@
 
    ["categories" ""] (fn [_] (make-response
                              atom-ctype
-                             (categories-doc "" ((a/collection-category-scheme feed)))))
-   ))
+                             (categories-doc "" (a/collection-category-scheme feed))))))
