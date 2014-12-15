@@ -112,7 +112,11 @@
 
 ;; ## Helper defrecords
 
-(defrecord AtomFeed [title updated url home-url author-name author-email entries]
+;; The AtomFeed record type is of limited use as `entries` is just a static
+;; field.
+
+(defrecord AtomFeed 
+  [title updated url home-url author-name author-email entries]
 
   IAtomFeed
   (feed-title [this] (:title this))
@@ -123,6 +127,7 @@
   (feed-author-email [this] (:author-email this))
   (feed-entries [this] (:entries this)))
 
+;; The AtomEntry record allows you to use a simple map as an AtomEntry.
 
 (defrecord AtomEntry [title id updated published url content summary
                       author-name author-email draft? categories]

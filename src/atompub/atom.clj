@@ -13,7 +13,10 @@
 
 ;; ## Utility functions
 
-(def atom-ctype "application/atom+xml; charset=utf-8")
+
+(def 
+  ^{:doc "HTTP Content-Type for Atom feeds"}
+  atom-ctype "application/atom+xml; charset=utf-8")
 
 (defn make-response [ctype body]
   {:status 200

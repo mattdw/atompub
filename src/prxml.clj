@@ -26,10 +26,8 @@
 
 (ns 
   ^{:author "Stuart Sierra",
-     :doc "Compact syntax for generating XML. See the documentation of \"prxml\" 
-for details."}
+     :doc "Compact syntax for generating XML. See the documentation of \"prxml\" for details."}
   prxml
-  ;(:use [clojure.string :only (escape)])
   )
 
 ;; the following three defs come from clojure.contrib.string
@@ -86,17 +84,17 @@ for details."}
 
 
 (def
- ^{:doc "If true, empty tags will have a space before the closing />"}
- ^:dynamic
+ ^{:doc "If true, empty tags will have a space before the closing />"
+   :dynamic true}
  *html-compatible* false)
 
 (def
  ^{:doc "The number of spaces to indent sub-tags.  nil for no indent
-  and no extra line-breaks."}
- ^:dynamic
+  and no extra line-breaks."
+   :dynamic true}
  *prxml-indent* nil)
 
-(def ^{:private true} ^:dynamic *prxml-tag-depth* 0)
+(def ^{:private true :dynamic true} *prxml-tag-depth* 0)
 
 (def ^{:private true} print-xml)  ; forward declaration
 
