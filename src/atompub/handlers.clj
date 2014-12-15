@@ -123,21 +123,17 @@
    ["entries" ""] {:get  (feed-handler feed
                            #(atom-edit-entry % (a/feed-url feed)))
                    :post (delegate save-entry-handler
-                                   feed
-                                   nil)}
+                                   feed nil)}
 
    ;; GET to entries/id just gives us the entry
    ;; PUT saves/updates the entry
    ;; DELETE deletes the entry.
    ["entries" id] {:get    (delegate get-entry-handler
-                                     feed
-                                     id)
+                                     feed id)
                    :put    (delegate save-entry-handler
-                                     feed
-                                     id)
+                                     feed id)
                    :delete (delegate delete-entry-handler
-                                     feed
-                                     id)}
+                                     feed id)}
 
    ;; At [collection]/categories/ lives the categories document for the feed.
    ["categories" ""] (fn [_] (make-response

@@ -2,7 +2,7 @@
   (:use
    [prxml :only (prxml)]
    [clojure.data.zip.xml :only (xml-> xml1-> tag= attr text)])
-  (:require 
+  (:require
    [atompub.core :as a]
    [clojure.data.zip :as zf]
    [clojure.zip :as zip]
@@ -14,27 +14,32 @@
 ;; ## Utility functions
 
 
-(def 
+(def
   ^{:doc "HTTP Content-Type for Atom feeds"}
   atom-ctype "application/atom+xml; charset=utf-8")
 
-(defn make-response [ctype body]
+(defn make-response
+  "Format a Ring response with a given Content-Type and body."
+  [ctype body]
   {:status 200
    :headers {"Content-Type" ctype}
    :body body})
 
-(defn xml-to-str [xml-struct]
+(defn xml-to-str
+  "Convert a nested structure in prxml format (see below) to an XML document
+  as a string."
+  [xml-struct]
   (with-out-str (prxml xml-struct)))
 
 (defn text*
   "Returns the textual contents of the given location, similar to
   xpaths's value-of. Doesn't collapse whitespace, unlike
-  contrib.zip-filter.xml/text."
+  `contrib.zip-filter.xml/text`."
   [loc]
   (apply str (xml-> loc zf/descendants zip/node string?)))
 
 (defn entry-from-xml
-  "Takes an XML zipper and returns an AtomEntry record."
+  "Takes an XML zipper and returns an `AtomEntry` record."
   [xml-entry extra-fields]
   (let [title (xml1-> xml-entry (tag= :title) text)
         content (xml1-> xml-entry (tag= :content) text*)
@@ -53,8 +58,8 @@
                           :id id}))))
 
 (defn parse-request
-  "Parse the body of a ring request into a hash-map of the appropriate
-   Atom fields."
+  "Parse the body of a ring request (assuming an XML AtomEntry) into an
+  `AtomEntry` record from the appropriate Atom fields."
   [request]
   (entry-from-xml (-> (:body request) xml/parse zip/xml-zip)
                   {:slug (get-in request [:headers "Slug"])}))
@@ -63,14 +68,14 @@
 
 (defn atom-date
   "Create an atom-format date from anything joda.org.time.DateTime has
-  a constructor for -- at least joda DateTime and java.util.Date."
+  a constructor for -- at least joda `DateTime` and `java.util.Date`."
   [x]
   (str (.toDateTime (DateTime. x) DateTimeZone/UTC)))
 
 (defn atom-entry
-  "Convert an IAtomEntry to XML."
+  "Return a prxml-format struct from an IAtomEntry."
   [^IAtomEntry item]
-  [:entry {:xmlns "http://www.w3.org/2005/Atom"      
+  [:entry {:xmlns "http://www.w3.org/2005/Atom"
            :xmlns:app "http://www.w3.org/2007/app"}
    [:title (a/entry-title item)]
    [:id (a/entry-id item)]
@@ -91,7 +96,7 @@
      [:summary {:type "html"} summary])])
 
 (defn atom-edit-entry
-  "Convert an IAtomEntry+IAtomEditableEntry to XML."
+  "Convert an IAtomEntry+IAtomEditableEntry to a prxml struct."
   [^IAtomEditableEntry item prefix]
   [:entry {:xmlns "http://www.w3.org/2005/Atom"
            :xmlns:app "http://www.w3.org/2007/app"}
