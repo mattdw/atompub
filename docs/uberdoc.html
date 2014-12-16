@@ -2866,7 +2866,129 @@ net.brehaut.ClojureTools = (function (SH) {
   };
 })(SyntaxHighlighter);
 </script><title>atompub -- Marginalia</title></head><body><table><tr><td class="docs"><div class="header"><h1 class="project-name"><a href="http://github.com/mattdw/atompub">atompub</a></h1><h2 class="project-version">1.0.0-SNAPSHOT</h2><br /><p>An implementation of Atom Syndication and the Atom Publishing Protocol.</p>
-</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.6.0</td></tr><tr><td class="dep-name">org.clojure/data.zip</td><td class="dotted"><hr /></td><td class="dep-version">0.1.1</td></tr><tr><td class="dep-name">joda-time</td><td class="dotted"><hr /></td><td class="dep-version">1.6</td></tr><tr><td class="dep-name">net.cgrand/moustache</td><td class="dotted"><hr /></td><td class="dep-version">1.0.0-SNAPSHOT</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#atompub.atom">atompub.atom</a></li><li><a href="#atompub.core">atompub.core</a></li><li><a href="#atompub.handlers">atompub.handlers</a></li><li><a href="#prxml">prxml</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#atompub.atom" name="atompub.atom"><h1 class="project-name">atompub.atom</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
+</div><div class="dependencies"><h3>dependencies</h3><table><tr><td class="dep-name">org.clojure/clojure</td><td class="dotted"><hr /></td><td class="dep-version">1.6.0</td></tr><tr><td class="dep-name">org.clojure/data.zip</td><td class="dotted"><hr /></td><td class="dep-version">0.1.1</td></tr><tr><td class="dep-name">joda-time</td><td class="dotted"><hr /></td><td class="dep-version">1.6</td></tr><tr><td class="dep-name">net.cgrand/moustache</td><td class="dotted"><hr /></td><td class="dep-version">1.0.0-SNAPSHOT</td></tr></table></div></td><td class="codes" style="text-align: center; vertical-align: middle;color: #666;padding-right:20px"><br /><br /><br />(this space intentionally left almost blank)</td></tr><tr><td class="docs"><div class="toc"><a name="toc"><h3>namespaces</h3></a><ul><li><a href="#atompub.core">atompub.core</a></li><li><a href="#atompub.atom">atompub.atom</a></li><li><a href="#atompub.handlers">atompub.handlers</a></li></ul></div></td><td class="codes">&nbsp;</td></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#atompub.core" name="atompub.core"><h1 class="project-name">atompub.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(ns atompub.core)</pre></td></tr><tr><td class="docs"><h1>Atom Syndication and Publishing Protocol</h1>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>This library assumes you are at least passingly familiar with the
+Atom format and protocol. If not, start here:</p>
+
+<ul>
+<li><a href="http://atomenabled.org">http://atomenabled.org</a></li>
+<li><a href="http://www.ietf.org/rfc/rfc4287.txt">http://www.ietf.org/rfc/rfc4287.txt</a></li>
+<li><a href="http://bitworking.org/projects/atom/draft-ietf-atompub-protocol-04.html">http://bitworking.org/projects/atom/draft-ietf-atompub-protocol-04.html</a></li>
+</ul>
+
+<p>This namespace defines all the necessary protocols, and helpful
+defrecords as shortcuts for feeds (non-editable) and entries.</p>
+
+<p>This library uses "feed" and "collection" in the same sense as the
+Atom documentation; "feed" is a single read-only XML document, and
+"collection" is (essentially) a feed with extra logic provided for
+adding, deleting, editing etc.</p>
+</td><td class="codes"></td></tr><tr><td class="docs"><h2>Feeds</h2>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>This protocol is required for any type of feed; whether purely for
+  syndication, or to be exposed via the publishing protocol.</p>
+</td><td class="codes"><pre class="brush: clojure">(defprotocol IAtomFeed
+  (feed-title [this]
+    &quot;The feed's title.&quot;)
+  (feed-updated [this]
+    &quot;Updated date/time. Can return anything that Joda DateTime can
+    use.&quot;)
+  (feed-url [this]
+    &quot;The URL that points to this feed.&quot;)
+  (feed-home-url [this]
+    &quot;A web link for this feed e.g. homepage. Optional, or nil.&quot;)
+  (feed-author-name [this]
+    &quot;The primary author's name.&quot;)
+  (feed-author-email [this]
+    &quot;An email for the primary author. Optional, or nil.&quot;)
+  (feed-entries [this]
+    &quot;Must returns a list of IAtomEntry, and optionally
+    IAtomEditableEntry if intended as an editable collection.&quot;))</pre></td></tr><tr><td class="docs"><p>This protocol must also be implemented in order to expose an
+  editable collection. Library code assumes that any object
+  implementing this protocol has also implemented IAtomFeed; that is,
+  IAtomFeed is a requirement of IAtomCollection.</p>
+
+<p>  The ids used by this protocol are largely opaque, but must be
+  appropriate as URL segments. That is, they must be stringifiable, and
+  this library currently won't handle anything with special characters,
+  as it does no escaping. Integers or simple strings are recommended.</p>
+</td><td class="codes"><pre class="brush: clojure">(defprotocol IAtomCollection
+  (collection-category-scheme [this]
+    &quot;A seq of strings. May be empty.&quot;)
+  (collection-get-entry [this id]
+    &quot;Retrieve an entry by (opaque) id.&quot;)
+  (collection-save-entry [this id-or-nil entry]
+    &quot;Save an entry. `entry` will be provided as an instance of
+    AtomEntry below. If `id-or-nil` is nil, create a new record.
+    Otherwise update an existing one.&quot;)
+  (collection-delete-entry [this id]
+    &quot;Delete the entry at `id`.&quot;))</pre></td></tr><tr><td class="docs"><h2>Entries</h2>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>IAtomEntry should be implemented for both editable and simple
+  subscription entries. However, <code>entry-id</code> should return a guid
+  (frequently a permalink) for subscription-type entries, but a simple
+  key for editable entries. (See the note in IAtomCollection regarding
+  ids.)</p>
+</td><td class="codes"><pre class="brush: clojure">(defprotocol IAtomEntry
+  (entry-title [this]
+    &quot;The title of the entry&quot;)
+  (entry-id [this]
+    &quot;The id of the entry. A GUID or permalink for non-editable entries,
+    or a simple key for editable entries. See notes above.&quot;)
+  (entry-updated [this]
+    &quot;Date/time updated. As for feeds, takes anything Joda DateTime can
+    use. Commpulsory per spec.&quot;)
+  (entry-published [this]
+    &quot;As per `updated`, and will frequently be the same. Optional per
+    spec.&quot;)
+  (entry-url [this]
+    &quot;The canonical URL (permalink) for this entry.&quot;)
+  ;; For syndication, only one of these should return content, the
+  ;; other should return nil.
+  (entry-content [this]
+    &quot;The entry's main content. Likely HTML for syndication, or for
+    editing whatever your raw format is e.g. Markdown, plain text,
+    HTML.&quot;)
+  (entry-summary [this]
+    &quot;A summary or excerpt of the entry's content.&quot;)
+  (entry-author-name [this]
+    &quot;The author's name. Optional.&quot;)
+  (entry-author-email [this]
+    &quot;The author's email. Optional.&quot;))</pre></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defprotocol IAtomEditableEntry
+  (entry-draft? [this]
+    &quot;Is this entry a draft? Returns boolean.&quot;)
+  (entry-categories [this]
+    &quot;A list of categories this entry belongs to. Should use keys found
+    in `collection-category-scheme` above.&quot;))</pre></td></tr><tr><td class="docs"><h2>Helper defrecords</h2>
+</td><td class="codes"></td></tr><tr><td class="docs"><p>The AtomFeed record type is of limited use as <code>entries</code> is just a static
+field.</p>
+</td><td class="codes"></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord AtomFeed 
+  [title updated url home-url author-name author-email entries]
+  IAtomFeed
+  (feed-title [this] (:title this))
+  (feed-updated [this] (:updated this))
+  (feed-url [this] (:url this))
+  (feed-home-url [this] (:home-url this))
+  (feed-author-name [this] (:author-name this))
+  (feed-author-email [this] (:author-email this))
+  (feed-entries [this] (:entries this)))</pre></td></tr><tr><td class="docs"><p>The AtomEntry record allows you to use a simple map as an AtomEntry.</p>
+</td><td class="codes"></td></tr><tr><td class="docs">
+</td><td class="codes"><pre class="brush: clojure">(defrecord AtomEntry [title id updated published url content summary
+                      author-name author-email draft? categories]
+  IAtomEntry
+  (entry-title [this] (:title this))
+  (entry-id [this] (:id this))
+  (entry-updated [this] (:updated this))
+  (entry-published [this] (:published this))
+  (entry-url [this] (:url this))
+  (entry-content [this] (:content this))
+  (entry-summary [this] (:summary this))
+  (entry-author-name [this] (:author-name this))
+  (entry-author-email [this] (:author-email this))
+  IAtomEditableEntry
+  (entry-draft? [this] (:draft? this))
+  (entry-categories [this] (:categories this)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#atompub.atom" name="atompub.atom"><h1 class="project-name">atompub.atom</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(ns atompub.atom
   (:use
    [prxml :only (prxml)]
@@ -3016,129 +3138,7 @@ net.brehaut.ClojureTools = (function (SH) {
                        :fixed &quot;yes&quot;
                        :scheme scheme}
       (for [category categories]
-        [:atom/category {:term category}])])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#atompub.core" name="atompub.core"><h1 class="project-name">atompub.core</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(ns atompub.core)</pre></td></tr><tr><td class="docs"><h1>Atom Syndication and Publishing Protocol</h1>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>This library assumes you are at least passingly familiar with the
-Atom format and protocol. If not, start here:</p>
-
-<ul>
-<li><a href="http://atomenabled.org">http://atomenabled.org</a></li>
-<li><a href="http://www.ietf.org/rfc/rfc4287.txt">http://www.ietf.org/rfc/rfc4287.txt</a></li>
-<li><a href="http://bitworking.org/projects/atom/draft-ietf-atompub-protocol-04.html">http://bitworking.org/projects/atom/draft-ietf-atompub-protocol-04.html</a></li>
-</ul>
-
-<p>This namespace defines all the necessary protocols, and helpful
-defrecords as shortcuts for feeds (non-editable) and entries.</p>
-
-<p>This library uses "feed" and "collection" in the same sense as the
-Atom documentation; "feed" is a single read-only XML document, and
-"collection" is (essentially) a feed with extra logic provided for
-adding, deleting, editing etc.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><h2>Feeds</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>This protocol is required for any type of feed; whether purely for
-  syndication, or to be exposed via the publishing protocol.</p>
-</td><td class="codes"><pre class="brush: clojure">(defprotocol IAtomFeed
-  (feed-title [this]
-    &quot;The feed's title.&quot;)
-  (feed-updated [this]
-    &quot;Updated date/time. Can return anything that Joda DateTime can
-    use.&quot;)
-  (feed-url [this]
-    &quot;The URL that points to this feed.&quot;)
-  (feed-home-url [this]
-    &quot;A web link for this feed e.g. homepage. Optional, or nil.&quot;)
-  (feed-author-name [this]
-    &quot;The primary author's name.&quot;)
-  (feed-author-email [this]
-    &quot;An email for the primary author. Optional, or nil.&quot;)
-  (feed-entries [this]
-    &quot;Must returns a list of IAtomEntry, and optionally
-    IAtomEditableEntry if intended as an editable collection.&quot;))</pre></td></tr><tr><td class="docs"><p>This protocol must also be implemented in order to expose an
-  editable collection. Library code assumes that any object
-  implementing this protocol has also implemented IAtomFeed; that is,
-  IAtomFeed is a requirement of IAtomCollection.</p>
-
-<p>  The ids used by this protocol are largely opaque, but must be
-  appropriate as URL segments. That is, they must be stringifiable, and
-  this library currently won't handle anything with special characters,
-  as it does no escaping. Integers or simple strings are recommended.</p>
-</td><td class="codes"><pre class="brush: clojure">(defprotocol IAtomCollection
-  (collection-category-scheme [this]
-    &quot;A seq of strings. May be empty.&quot;)
-  (collection-get-entry [this id]
-    &quot;Retrieve an entry by (opaque) id.&quot;)
-  (collection-save-entry [this id-or-nil entry]
-    &quot;Save an entry. `entry` will be provided as an instance of
-    AtomEntry below. If `id-or-nil` is nil, create a new record.
-    Otherwise update an existing one.&quot;)
-  (collection-delete-entry [this id]
-    &quot;Delete the entry at `id`.&quot;))</pre></td></tr><tr><td class="docs"><h2>Entries</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>IAtomEntry should be implemented for both editable and simple
-  subscription entries. However, <code>entry-id</code> should return a guid
-  (frequently a permalink) for subscription-type entries, but a simple
-  key for editable entries. (See the note in IAtomCollection regarding
-  ids.)</p>
-</td><td class="codes"><pre class="brush: clojure">(defprotocol IAtomEntry
-  (entry-title [this]
-    &quot;The title of the entry&quot;)
-  (entry-id [this]
-    &quot;The id of the entry. A GUID or permalink for non-editable entries,
-    or a simple key for editable entries. See notes above.&quot;)
-  (entry-updated [this]
-    &quot;Date/time updated. As for feeds, takes anything Joda DateTime can
-    use. Commpulsory per spec.&quot;)
-  (entry-published [this]
-    &quot;As per `updated`, and will frequently be the same. Optional per
-    spec.&quot;)
-  (entry-url [this]
-    &quot;The canonical URL (permalink) for this entry.&quot;)
-  ;; For syndication, only one of these should return content, the
-  ;; other should return nil.
-  (entry-content [this]
-    &quot;The entry's main content. Likely HTML for syndication, or for
-    editing whatever your raw format is e.g. Markdown, plain text,
-    HTML.&quot;)
-  (entry-summary [this]
-    &quot;A summary or excerpt of the entry's content.&quot;)
-  (entry-author-name [this]
-    &quot;The author's name. Optional.&quot;)
-  (entry-author-email [this]
-    &quot;The author's email. Optional.&quot;))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defprotocol IAtomEditableEntry
-  (entry-draft? [this]
-    &quot;Is this entry a draft? Returns boolean.&quot;)
-  (entry-categories [this]
-    &quot;A list of categories this entry belongs to. Should use keys found
-    in `collection-category-scheme` above.&quot;))</pre></td></tr><tr><td class="docs"><h2>Helper defrecords</h2>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>The AtomFeed record type is of limited use as <code>entries</code> is just a static
-field.</p>
-</td><td class="codes"></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defrecord AtomFeed 
-  [title updated url home-url author-name author-email entries]
-  IAtomFeed
-  (feed-title [this] (:title this))
-  (feed-updated [this] (:updated this))
-  (feed-url [this] (:url this))
-  (feed-home-url [this] (:home-url this))
-  (feed-author-name [this] (:author-name this))
-  (feed-author-email [this] (:author-email this))
-  (feed-entries [this] (:entries this)))</pre></td></tr><tr><td class="docs"><p>The AtomEntry record allows you to use a simple map as an AtomEntry.</p>
-</td><td class="codes"></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defrecord AtomEntry [title id updated published url content summary
-                      author-name author-email draft? categories]
-  IAtomEntry
-  (entry-title [this] (:title this))
-  (entry-id [this] (:id this))
-  (entry-updated [this] (:updated this))
-  (entry-published [this] (:published this))
-  (entry-url [this] (:url this))
-  (entry-content [this] (:content this))
-  (entry-summary [this] (:summary this))
-  (entry-author-name [this] (:author-name this))
-  (entry-author-email [this] (:author-email this))
-  IAtomEditableEntry
-  (entry-draft? [this] (:draft? this))
-  (entry-categories [this] (:categories this)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#atompub.handlers" name="atompub.handlers"><h1 class="project-name">atompub.handlers</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
+        [:atom/category {:term category}])])))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#atompub.handlers" name="atompub.handlers"><h1 class="project-name">atompub.handlers</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs">
 </td><td class="codes"><pre class="brush: clojure">(ns atompub.handlers
   (:use [atompub.atom]
         [net.cgrand moustache]
@@ -3256,195 +3256,7 @@ calls the methods provided by <code>IAtomCollection</code>.</p>
    ;; At [collection]/categories/ lives the categories document for the feed.
    [&quot;categories&quot; &quot;&quot;] (fn [_] (make-response
                              atom-ctype
-                             (categories-doc &quot;&quot; (a/collection-category-scheme feed))))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr><tr><td class="docs"><div class="docs-header"><a class="anchor" href="#prxml" name="prxml"><h1 class="project-name">prxml</h1><a class="toc-link" href="#toc">toc</a></a></div></td><td class="codes" /></tr><tr><td class="docs"><p>prxml.clj -- compact syntax for generating XML</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>by Stuart Sierra, http://stuartsierra.com/
-March 29, 2009</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Copyright (c) 2009 Stuart Sierra. All rights reserved.  The use and
-distribution terms for this software are covered by the Eclipse
-Public License 1.0 (http://opensource.org/licenses/eclipse-1.0.php)
-which can be found in the file epl-v10.html at the root of this
-distribution.  By using this software in any fashion, you are
-agreeing to be bound by the terms of this license.  You must not
-remove this notice, or any other, from this software.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Change Log</p>
-
-<p>December 6, 2014: hacked for Clojure 1.6</p>
-
-<p>March 29, 2009: added <em>prxml-indent</em></p>
-
-<p>January 4, 2009: initial version</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>See function "prxml" at the bottom of this file for documentation.</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>Compact syntax for generating XML. See the documentation of "prxml" for details.</p>
-</td><td class="codes"><pre class="brush: clojure">(ns 
-  ^{:author &quot;Stuart Sierra&quot;,
-     :doc }
-  prxml)</pre></td></tr><tr><td class="docs"><p>the following three defs come from clojure.contrib.string</p>
-</td><td class="codes"></td></tr><tr><td class="docs"><p>bindings => [name string]
-  Repeatedly executes body, with name bound to each character in
-  string.  Does NOT handle Unicode supplementary characters (above
-  U+FFFF).</p>
-</td><td class="codes"><pre class="brush: clojure">(defmacro dochars 
-  [bindings &amp; body]
-  (assert (vector bindings))
-  (assert (= 2 (count bindings)))
-  ;; This seems to be the fastest way to iterate over characters.
-  `(let [^String s# ~(second bindings)]
-     (dotimes [i# (.length s#)]
-       (let [~(first bindings) (.charAt s# i#)]
-         ~@body))))</pre></td></tr><tr><td class="docs"><p>Returns a new String by applying cmap (a function or a map) to each
-   character in s.  If cmap returns nil, the original character is
-   added to the output unchanged.</p>
-</td><td class="codes"><pre class="brush: clojure">(defn ^String escape
-   {:deprecated &quot;1.2&quot;}
-  [cmap ^String s]
-  (let [buffer (StringBuilder. (.length s))]
-    (dochars [c s]
-      (if-let [r (cmap c)]
-        (.append buffer r)
-        (.append buffer c)))
-    (.toString buffer)))</pre></td></tr><tr><td class="docs"><p>Like clojure.core/str, but if an argument is a keyword or symbol,
-  its name will be used instead of its literal representation.
-  Example:
-     (str :foo :bar)     ;;=> ":foo:bar"
-     (as-str :foo :bar)  ;;=> "foobar" 
-  Note that this does not apply to keywords or symbols nested within
-  data structures; they will be rendered as with str.
-  Example:
-     (str {:foo :bar})     ;;=> "{:foo :bar}"
-     (as-str {:foo :bar})  ;;=> "{:foo :bar}" </p>
-</td><td class="codes"><pre class="brush: clojure">(defn as-str
-  ([] &quot;&quot;)
-  ([x] (if (instance? clojure.lang.Named x)
-         (if-let [elem-namespace (namespace x)]
-           (str elem-namespace &quot;:&quot; (name x))
-           (name x))
-         (str x)))
-  ([x &amp; ys]
-     ((fn [^StringBuilder sb more]
-        (if more
-          (recur (. sb  (append (as-str (first more)))) (next more))
-          (str sb)))
-      (new StringBuilder ^String (as-str x)) ys)))</pre></td></tr><tr><td class="docs"><p>If true, empty tags will have a space before the closing /></p>
-</td><td class="codes"><pre class="brush: clojure">(def
- ^{:doc 
-   :dynamic true}
- *html-compatible* false)</pre></td></tr><tr><td class="docs"><p>The number of spaces to indent sub-tags.  nil for no indent
-  and no extra line-breaks.</p>
-</td><td class="codes"><pre class="brush: clojure">(def
- ^{:doc 
-   :dynamic true}
- *prxml-indent* nil)</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def ^{:private true :dynamic true} *prxml-tag-depth* 0)</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(def ^{:private true} print-xml)  ; forward declaration</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn- escape-xml [s]
-  (escape {\&lt; &quot;&amp;lt;&quot;
-           \&gt; &quot;&amp;gt;&quot;
-           \&amp; &quot;&amp;amp;&quot;
-           \' &quot;&amp;apos;&quot;
-           \&quot; &quot;&amp;quot;&quot;} s))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defn- prxml-attribute [name value]
-  (print &quot; &quot;)
-  (print (as-str name))
-  (print &quot;=\)
-  (print (escape-xml (str value)))
-  (print &quot;\))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmulti ^{:private true} print-xml-tag (fn [tag attrs content] tag))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml-tag :raw! [tag attrs contents]
-  (doseq [c contents] (print c)))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml-tag :comment! [tag attrs contents]
-  (print &quot;&lt;!-- &quot;)
-  (doseq [c contents] (print c))
-  (print &quot; --&gt;&quot;))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml-tag :decl! [tag attrs contents]
-  (let [attrs (merge {:version &quot;1.0&quot; :encoding &quot;UTF-8&quot;}
-                     attrs)]
-    ;; Must enforce ordering of pseudo-attributes:
-    (print &quot;&lt;?xml version=\&quot;&quot;)
-    (print (:version attrs))
-    (print &quot;\&quot; encoding=\&quot;&quot;)
-    (print (:encoding attrs))
-    (print &quot;\&quot;&quot;)
-    (when (:standalone attrs)
-      (print &quot; standalone=\&quot;&quot;)
-      (print (:standalone attrs))
-      (print &quot;\&quot;&quot;))
-    (print &quot;?&gt;&quot;)))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml-tag :cdata! [tag attrs contents]
-  (print &quot;&lt;![CDATA[&quot;)
-  (doseq [c contents] (print c))
-  (print &quot;]]&gt;&quot;))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml-tag :doctype! [tag attrs contents]
-  (print &quot;&lt;!DOCTYPE &quot;)
-  (doseq [c contents] (print c))
-  (print &quot;&gt;&quot;))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml-tag :default [tag attrs contents]
-  (let [tag-name (as-str tag)]
-    (when *prxml-indent*
-      (newline)
-      (dotimes [n (* *prxml-tag-depth* *prxml-indent*)] (print &quot; &quot;)))
-    (print &quot;&lt;&quot;)
-    (print tag-name)
-    (doseq [[name value] attrs]
-      (prxml-attribute name value))
-    (if (seq contents)
-      (do  ;; not an empty tag
-        (print &quot;&gt;&quot;)
-        (if (every? string? contents)
-          ;; tag only contains strings:
-          (do (doseq [c contents] (print-xml c))
-              (print &quot;&lt;/&quot;) (print tag-name) (print &quot;&gt;&quot;))
-          ;; tag contains sub-tags:
-          (do (binding [*prxml-tag-depth* (inc *prxml-tag-depth*)]
-                (doseq [c contents] (print-xml c)))
-              (when *prxml-indent*
-                (newline)
-                (dotimes [n (* *prxml-tag-depth* *prxml-indent*)] (print &quot; &quot;)))
-              (print &quot;&lt;/&quot;) (print tag-name) (print &quot;&gt;&quot;))))
-      ;; empty tag:
-      (print (if *html-compatible* &quot; /&gt;&quot; &quot;/&gt;&quot;)))))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmulti ^{:private true} print-xml class)</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml clojure.lang.IPersistentVector [x]
-  (let [[tag &amp; contents] x
-        [attrs content] (if (map? (first contents))
-                          [(first contents) (rest contents)]
-                          [{} contents])]
-    (print-xml-tag tag attrs content)))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml clojure.lang.ISeq [x]
-  ;; Recurse into sequences, so we can use (map ...) inside prxml.
-  (doseq [c x] (print-xml c)))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml clojure.lang.Keyword [x]
-  (print-xml-tag x {} nil))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml String [x]
-  (print (escape-xml x)))</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml nil [x])</pre></td></tr><tr><td class="docs">
-</td><td class="codes"><pre class="brush: clojure">(defmethod print-xml :default [x]
-  (print x))</pre></td></tr><tr><td class="docs"><p>Print XML to <em>out</em>.  Vectors become XML tags: the first item is the
-  tag name; optional second item is a map of attributes.</p>
-
-<p>  Sequences are processed recursively, so you can use map and other
-  sequence functions inside prxml.</p>
-
-<pre><code>(prxml [:p {:class "greet"} [:i "Ladies &amp; gentlemen"]])
-; =&gt; &lt;p class="greet"&gt;&lt;i&gt;Ladies &amp;amp; gentlemen&lt;/i&gt;&lt;/p&gt;
-</code></pre>
-
-<p>  PSEUDO-TAGS: some keywords have special meaning:</p>
-
-<pre><code>:raw!      do not XML-escape contents
-:comment!  create an XML comment
-:decl!     create an XML declaration, with attributes
-:cdata!    create a CDATA section
-:doctype!  create a DOCTYPE!
-
-(prxml [:p [:raw! "&lt;i&gt;here &amp; gone&lt;/i&gt;"]])
-; =&gt; &lt;p&gt;&lt;i&gt;here &amp; gone&lt;/i&gt;&lt;/p&gt;
-
-(prxml [:decl! {:version "1.1"}])
-; =&gt; &lt;?xml version="1.1" encoding="UTF-8"?&gt;
-</code></pre>
-</td><td class="codes"><pre class="brush: clojure">(defn prxml
-  [&amp; args]
-  (doseq [arg args] (print-xml arg)))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_atompub.atom">atompub.atom</li><li class="floating-toc-li" id="floating-toc_atompub.core">atompub.core</li><li class="floating-toc-li" id="floating-toc_atompub.handlers">atompub.handlers</li><li class="floating-toc-li" id="floating-toc_prxml">prxml</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
+                             (categories-doc &quot;&quot; (a/collection-category-scheme feed))))))</pre></td></tr><tr><td class="spacer docs">&nbsp;</td><td class="codes" /></tr></table><div class="footer">Generated by <a href="https://github.com/gdeer81/marginalia">Marginalia</a>.&nbsp;&nbsp;Syntax highlighting provided by Alex Gorbatchev's <a href="http://alexgorbatchev.com/SyntaxHighlighter/">SyntaxHighlighter</a><div id="floating-toc"><ul><li class="floating-toc-li" id="floating-toc_atompub.core">atompub.core</li><li class="floating-toc-li" id="floating-toc_atompub.atom">atompub.atom</li><li class="floating-toc-li" id="floating-toc_atompub.handlers">atompub.handlers</li></ul></div></div><script type="text/javascript">SyntaxHighlighter.defaults['gutter'] = false;
 SyntaxHighlighter.all();
 
 // hackity hack
