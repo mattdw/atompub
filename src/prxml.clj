@@ -73,7 +73,9 @@
      (as-str {:foo :bar})  ;;=> \"{:foo :bar}\" "
   ([] "")
   ([x] (if (instance? clojure.lang.Named x)
-         (name x)
+         (if-let [elem-namespace (namespace x)]
+           (str elem-namespace ":" (name x))
+           (name x))
          (str x)))
   ([x & ys]
      ((fn [^StringBuilder sb more]

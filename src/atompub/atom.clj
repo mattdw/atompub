@@ -76,7 +76,7 @@
   "Return a prxml-format struct from an IAtomEntry."
   [^IAtomEntry item]
   [:entry {:xmlns "http://www.w3.org/2005/Atom"
-           :xmlns:app "http://www.w3.org/2007/app"}
+           :xmlns/app "http://www.w3.org/2007/app"}
    [:title (a/entry-title item)]
    [:id (a/entry-id item)]
    [:updated (atom-date (a/entry-updated item))]
@@ -99,7 +99,7 @@
   "Convert an IAtomEntry+IAtomEditableEntry to a prxml struct."
   [^IAtomEditableEntry item prefix]
   [:entry {:xmlns "http://www.w3.org/2005/Atom"
-           :xmlns:app "http://www.w3.org/2007/app"}
+           :xmlns/app "http://www.w3.org/2007/app"}
    [:title (a/entry-title item)]
    [:id (a/entry-id item)]
    [:link {:href (str prefix "entries/" (a/entry-id item)) :rel "edit"}]
@@ -107,12 +107,12 @@
    (if-let [url (a/entry-url item)]
      [:link {:href url :rel "alternate" :type "text/html"}])
    [:updated (atom-date (a/entry-updated item))]
-   [:app:edited (atom-date (a/entry-updated item))]
+   [:app/edited (atom-date (a/entry-updated item))]
    (if-let [pub (a/entry-published item)]
      [:published (atom-date pub)])
    (when (not (nil? (a/entry-draft? item)))
-     [:app:control
-      [:app:draft (if (a/entry-draft? item) "yes" "no")]])
+     [:app/control
+      [:app/draft (if (a/entry-draft? item) "yes" "no")]])
    (if-let [content (a/entry-content item)]
      [:content {:type "text"} [:cdata! content]])
    (if-let [summary (a/entry-summary item)]
@@ -156,11 +156,11 @@
     (prxml
      [:decl!]
      [:service {:xmlns "http://www.w3.org/2007/app"
-                :xmlns:atom "http://www.w3.org/2005/Atom"}
+                :xmlns/atom "http://www.w3.org/2005/Atom"}
       [:workspace
-       [:atom:title title]
+       [:atom/title title]
        [:collection {:href (str prefix "entries/")}
-        [:atom:title title]
+        [:atom/title title]
         [:categories {:href (str prefix "categories/")}]]]])))
 
 (defn categories-doc
@@ -169,9 +169,9 @@
   (with-out-str
     (prxml
      [:decl!]
-     [:app:categories {:xmlns:app "http://www.w3.org/2007/app"
-                       :xmlns:atom "http://www.w3.org/2005/Atom"
+     [:app/categories {:xmlns/app "http://www.w3.org/2007/app"
+                       :xmlns/atom "http://www.w3.org/2005/Atom"
                        :fixed "yes"
                        :scheme scheme}
       (for [category categories]
-        [:atom:category {:term category}])])))
+        [:atom/category {:term category}])])))
