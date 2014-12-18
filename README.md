@@ -1,22 +1,31 @@
 # atompub
 
-The `atompub` library contains a set of functions to create Atom feeds and collections, and Ring handlers for exposing them in Clojure web-applications.
+The `atompub` library contains a set of functions to create Atom feeds
+and collections, and Ring handlers for exposing them in Clojure
+web-applications.
 
-It is currently still under development.
+It's at a tentative 1.0, which means that it does everything I need it
+to, I *think* it does everything expected of the AtomPub spec, and it
+has a near-enough idiomatic API.
+
+I have no further plans for this library at this stage; if you do, or
+if you can see ways in which the API could be approved, feel free to
+contact me to discuss, or just fork and go for it.
 
 ## Usage
 
-    (use 'atompub.handlers)
-    (feed-handler
-      {:title feed-title
-       :url   feed-url
-       ...    etc.})      ; see atompub.core/feed-properties
-      #(map my-article-to-entry-map-function (fetch-articles 20)))
-    ;; => returns a ring handler
+Implement whichever necessary of the protocols in `atompub.core`.
+You'll need something that implements `IAtomFeed`, and it may also
+implement `IAtomCollection`; then you'll need something (returned by
+your feed's `get-entries` function) that implements `IAtomEntry` and,
+if you implemented `IAtomCollection`, also `IAtomEditableEntry`.
 
-`atompub.handlers` contains the two main entry-points, `feed-handler` and `collection-handler`, which both return [Ring](https://github.com/mmcgrana/ring) handlers.
+`atompub.handlers` contains the two main entry-points, `feed-handler`
+and `collection-handler`, which both return
+[Ring](https://github.com/mmcgrana/ring) handlers.
 
-`atompub.atom` contains all the more directly-used primitives and XML creation, if that's your thing.
+`atompub.atom` contains all the more directly-used primitives and XML
+creation, if that's your thing.
 
 ## Maps and Fields
 

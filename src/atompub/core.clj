@@ -38,7 +38,7 @@
   (feed-author-email [this]
     "An email for the primary author. Optional, or nil.")
   (feed-entries [this]
-    "Must returns a list of IAtomEntry, and optionally
+    "Must return a seqable/iterable of IAtomEntry, and optionally
     IAtomEditableEntry if intended as an editable collection."))
 
 (defprotocol IAtomCollection
